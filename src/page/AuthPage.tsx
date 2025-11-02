@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useLogin, useRegister, useGoogleAuth } from "../hooks/auth/useAuth";
+import toast from "react-hot-toast";
+import { authService } from "@/services/authService";
 
 const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -33,7 +35,7 @@ const AuthPage: React.FC = () => {
   // React Query hooks
   const loginMutation = useLogin();
   const registerMutation = useRegister();
-  // const googleAuthMutation = useGoogleAuth();
+  const googleAuthMutation = useGoogleAuth();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -49,18 +51,24 @@ const AuthPage: React.FC = () => {
         password: formData.password,
       });
     } else {
+      console.log(formData);
       registerMutation.mutate({
         email: formData.email,
         password: formData.password,
         username: formData.username,
-        display_name: formData.displayName,
+        displayName: formData.displayName,
       });
     }
   };
 
-  const handleGoogleLogin = () => {
-    console.log("Google login clicked");
-    alert("Đăng nhập bằng Google sẽ được triển khai sau!");
+  const handleGoogleLogin = async () => {
+    try {
+      const response = await authService.getGoogleAuthUrl();
+      const authUrl = response.data.authUrl;
+      window.location.href = authUrl;
+    } catch {
+      toast.error("Không thể khởi tạo đăng nhập Google");
+    }
   };
 
   const isLoading = loginMutation.isPending || registerMutation.isPending;

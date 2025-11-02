@@ -124,7 +124,10 @@ const ProfilePage: React.FC = () => {
     return <div>Loading...</div>;
   }
 
-  if (!profile) return null;
+  if (!profile)
+    return (
+      <div className="flex justify-center">"Không tải được thông tin user"</div>
+    );
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4">

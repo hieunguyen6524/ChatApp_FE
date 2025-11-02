@@ -9,7 +9,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   username: string;
-  display_name: string;
+  displayName: string;
 }
 
 export interface AuthResponse {
@@ -19,5 +19,5 @@ export interface AuthResponse {
 }
 
 export interface GoogleAuthRequest {
-  token: string;
+  code: string;
 }

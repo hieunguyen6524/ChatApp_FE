@@ -67,6 +67,10 @@ export const useGoogleAuth = () => {
       toast.success("Đăng nhập Google thành công!");
       navigate("/chat");
     },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || "Đăng nhập thất bại";
+      toast.error(message);
+    },
   });
 };
 

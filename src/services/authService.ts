@@ -17,6 +17,7 @@ export const authService = {
   register: async (
     data: RegisterRequest
   ): Promise<ApiResponse<AuthResponse>> => {
+    console.log(data);
     return apiClient.post<ApiResponse<AuthResponse>>("/auth/register", data);
   },
 
@@ -24,7 +25,14 @@ export const authService = {
   googleAuth: async (
     data: GoogleAuthRequest
   ): Promise<ApiResponse<AuthResponse>> => {
-    return apiClient.post<ApiResponse<AuthResponse>>("/auth/google", data);
+    return apiClient.post<ApiResponse<AuthResponse>>(
+      "/auth/google/authenticate",
+      data
+    );
+  },
+
+  getGoogleAuthUrl: async (): Promise<ApiResponse<{ authUrl: string }>> => {
+    return apiClient.get("/auth/google/url");
   },
 
   // Logout (clears cookies on server)

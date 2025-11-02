@@ -8,6 +8,7 @@ import HomePage from "./page/HomePage";
 import AuthPage from "./page/AuthPage";
 import ProfilePage from "./page/ProfilePage";
 import ChatPage from "./page/ChatPage";
+import GoogleCallbackPage from "./page/GoogleCallbackPage";
 
 // Protected Route Component
 interface ProtectedRouteProps {
@@ -60,6 +61,10 @@ const App: React.FC = () => {
                 <AuthPage />
               </PublicRoute>
             }
+          />
+          <Route
+            path="/oauth/google/callback"
+            element={<GoogleCallbackPage />}
           />
         </Route>
 
