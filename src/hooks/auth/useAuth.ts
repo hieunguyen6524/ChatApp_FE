@@ -18,8 +18,8 @@ export const useLogin = () => {
   return useMutation({
     mutationFn: (data: LoginRequest) => authService.login(data),
     onSuccess: (response) => {
-      const { access_token, refresh_token, user } = response.data;
-      setAuth(user, access_token, refresh_token);
+      const { accessToken, user } = response.data;
+      setAuth(user, accessToken);
 
       // Invalidate all queries to refetch with new auth
       queryClient.invalidateQueries();
@@ -41,8 +41,8 @@ export const useRegister = () => {
   return useMutation({
     mutationFn: (data: RegisterRequest) => authService.register(data),
     onSuccess: (response) => {
-      const { access_token, refresh_token, user } = response.data;
-      setAuth(user, access_token, refresh_token);
+      const { accessToken, user } = response.data;
+      setAuth(user, accessToken);
 
       toast.success("Đăng ký thành công!");
       navigate("/chat");
@@ -61,8 +61,8 @@ export const useGoogleAuth = () => {
   return useMutation({
     mutationFn: (data: GoogleAuthRequest) => authService.googleAuth(data),
     onSuccess: (response) => {
-      const { access_token, refresh_token, user } = response.data;
-      setAuth(user, access_token, refresh_token);
+      const { accessToken, user } = response.data;
+      setAuth(user, accessToken);
 
       toast.success("Đăng nhập Google thành công!");
       navigate("/chat");

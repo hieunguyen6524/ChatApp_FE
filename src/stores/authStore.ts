@@ -5,13 +5,11 @@ import type { User, Profile, UserStatus } from "../types/user.types";
 interface AuthState {
   user: User | null;
   accessToken: string | null;
-  refreshToken: string | null;
+  refreshToken: string | null; // ⚠️ Giữ lại cho compatibility nhưng không dùng
   isAuthenticated: boolean;
   isLoading: boolean;
 
-  // Actions
-  setAuth: (user: User, accessToken: string, refreshToken: string) => void;
-  setAccesstoken: (accessToken: string) => void;
+  setAuth: (user: User, accessToken: string, refreshToken?: string) => void;
   updateProfile: (profile: Partial<Profile>) => void;
   updateStatus: (status: UserStatus) => void;
   logout: () => void;
@@ -27,15 +25,13 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
 
-      setAuth: (user, accessToken, refreshToken) =>
+      setAuth: (user, accessToken, refreshToken = "") =>
         set({
           user,
           accessToken,
-          refreshToken,
+          refreshToken, // Lưu empty string vì token thật ở cookie
           isAuthenticated: true,
         }),
-
-      setAccesstoken: (accessToken) => set({ accessToken }),
 
       updateProfile: (profileUpdate) =>
         set((state) => {
@@ -81,7 +77,6 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
     }

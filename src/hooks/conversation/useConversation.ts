@@ -1,24 +1,24 @@
+import { conversationService } from "@/services/conversationService";
+import { useChatStore } from "@/stores/chatStore";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import toast from "react-hot-toast";
-import { conversationService } from "../../services/conversationService";
-import { useChatStore } from "../../stores/chatStore";
 import { useEffect } from "react";
+import toast from "react-hot-toast";
 
 export const CONVERSATION_KEYS = {
   all: ["conversations"] as const,
-  lists: () => [...CONVERSATION_KEYS.all, "list"] as const,
   byWorkspace: (workspaceId: number) =>
-    [...CONVERSATION_KEYS.lists(), workspaceId] as const,
+    [...CONVERSATION_KEYS.all, "workspace", workspaceId] as const,
   detail: (id: number) => [...CONVERSATION_KEYS.all, id] as const,
   members: (id: number) => [...CONVERSATION_KEYS.all, id, "members"] as const,
 };
 
+// GET /api/conversations/workspace/:workspaceId
 export const useConversations = (workspaceId: number) => {
   const { setConversations } = useChatStore();
 
   const query = useQuery({
     queryKey: CONVERSATION_KEYS.byWorkspace(workspaceId),
-    queryFn: () => conversationService.getConversations(workspaceId),
+    queryFn: () => conversationService.getConversationsByWorkspace(workspaceId),
     enabled: !!workspaceId,
     select: (data) => data.data,
   });
@@ -32,6 +32,7 @@ export const useConversations = (workspaceId: number) => {
   return query;
 };
 
+// GET /api/conversations/:id
 export const useConversation = (conversationId: number) => {
   return useQuery({
     queryKey: CONVERSATION_KEYS.detail(conversationId),
@@ -41,18 +42,20 @@ export const useConversation = (conversationId: number) => {
   });
 };
 
-export const useCreateChannel = () => {
+// POST /api/conversations
+export const useCreateConversation = () => {
   const queryClient = useQueryClient();
   const { addConversation } = useChatStore();
 
   return useMutation({
-    mutationFn: ({
-      workspaceId,
-      data,
-    }: {
+    mutationFn: (data: {
       workspaceId: number;
-      data: { name: string; description?: string; is_private: boolean };
-    }) => conversationService.createChannel(workspaceId, data),
+      name?: string;
+      description?: string;
+      type: "CHANNEL" | "DM_PAIR" | "DM_GROUP";
+      isPrivate: boolean;
+      memberIds?: number[];
+    }) => conversationService.createConversation(data),
     onSuccess: (response, variables) => {
       const conversation = response.data;
 
@@ -61,38 +64,42 @@ export const useCreateChannel = () => {
         queryKey: CONVERSATION_KEYS.byWorkspace(variables.workspaceId),
       });
 
-      toast.success("Tạo channel thành công!");
+      toast.success(
+        variables.type === "CHANNEL"
+          ? "Tạo channel thành công!"
+          : "Tạo cuộc trò chuyện thành công!"
+      );
     },
   });
 };
 
-export const useCreateDM = () => {
+// PATCH /api/conversations/:id
+export const useUpdateConversation = () => {
   const queryClient = useQueryClient();
-  const { addConversation, setCurrentConversation } = useChatStore();
+  const { updateConversation } = useChatStore();
 
   return useMutation({
     mutationFn: ({
-      workspaceId,
-      accountIds,
+      conversationId,
+      data,
     }: {
-      workspaceId: number;
-      accountIds: number[];
-    }) =>
-      conversationService.createDM(workspaceId, { account_ids: accountIds }),
+      conversationId: number;
+      data: { name?: string; description?: string; isPrivate?: boolean };
+    }) => conversationService.updateConversation(conversationId, data),
     onSuccess: (response, variables) => {
       const conversation = response.data;
 
-      addConversation(conversation);
-      setCurrentConversation(conversation);
+      updateConversation(variables.conversationId, conversation);
       queryClient.invalidateQueries({
-        queryKey: CONVERSATION_KEYS.byWorkspace(variables.workspaceId),
+        queryKey: CONVERSATION_KEYS.detail(variables.conversationId),
       });
 
-      toast.success("Tạo cuộc trò chuyện thành công!");
+      toast.success("Cập nhật cuộc trò chuyện thành công!");
     },
   });
 };
 
+// GET /api/conversations/:id/members
 export const useConversationMembers = (conversationId: number) => {
   const { setConversationMembers } = useChatStore();
 
@@ -101,13 +108,75 @@ export const useConversationMembers = (conversationId: number) => {
     queryFn: () => conversationService.getMembers(conversationId),
     enabled: !!conversationId,
     select: (data) => data.data,
+    // onSuccess: (members) => {
+    //   setConversationMembers(conversationId, members);
+    // },
   });
 
   useEffect(() => {
     if (query.data) {
       setConversationMembers(conversationId, query.data);
     }
-  }, [query.data, conversationId, setConversationMembers]);
+  }, [query.data, setConversationMembers, conversationId]);
 
   return query;
+};
+
+// POST /api/conversations/:id/members
+export const useAddConversationMember = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      conversationId,
+      accountId,
+    }: {
+      conversationId: number;
+      accountId: number;
+    }) => conversationService.addMember(conversationId, accountId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: CONVERSATION_KEYS.members(variables.conversationId),
+      });
+      toast.success("Thêm thành viên thành công!");
+    },
+  });
+};
+
+// DELETE /api/conversations/:id/members/:accountId
+export const useRemoveConversationMember = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      conversationId,
+      accountId,
+    }: {
+      conversationId: number;
+      accountId: number;
+    }) => conversationService.removeMember(conversationId, accountId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: CONVERSATION_KEYS.members(variables.conversationId),
+      });
+      toast.success("Xóa thành viên thành công!");
+    },
+  });
+};
+
+// DELETE /api/conversations/:id/leave
+export const useLeaveConversation = () => {
+  const queryClient = useQueryClient();
+  const { removeConversation, setCurrentConversation } = useChatStore();
+
+  return useMutation({
+    mutationFn: (conversationId: number) =>
+      conversationService.leaveConversation(conversationId),
+    onSuccess: (_, conversationId) => {
+      removeConversation(conversationId);
+      setCurrentConversation(null);
+      queryClient.invalidateQueries({ queryKey: CONVERSATION_KEYS.all });
+      toast.success("Rời cuộc trò chuyện thành công!");
+    },
+  });
 };

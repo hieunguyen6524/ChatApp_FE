@@ -1,5 +1,16 @@
-import React, { useEffect, useState } from "react";
-import { Camera, Mail, User, Edit2, Save, X, Check, Clock } from "lucide-react";
+import React, { useState, useRef } from "react";
+import {
+  Camera,
+  Mail,
+  User,
+  Edit2,
+  Save,
+  X,
+  Check,
+  // Clock,
+  Shield,
+  LogOut,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,42 +23,46 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+
 import {
-  useMyProfile,
+  useMe,
   useUpdateProfile,
+  useUpdateAvatar,
   useUpdateStatus,
-} from "../hooks/profile/useProfile";
-import type { UserStatus } from "../types/user.types";
+  useChangePassword,
+  useDeactivateAccount,
+} from "@/hooks/profile/useProfile";
 
-// type UserStatus = "ONLINE" | "OFFLINE" | "AWAY" | "DND";
-
-// interface ProfileData {
-//   username: string;
-//   displayName: string;
-//   email: string;
-//   bio: string;
-//   avatarUrl: string;
-//   status: UserStatus;
-// }
+type UserStatus = "ONLINE" | "OFFLINE" | "AWAY" | "DND";
 
 const ProfilePage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: profile, isLoading } = useMyProfile();
+  // React Query hooks
+  const { data: profile, isLoading: loadingProfile } = useMe();
   const updateProfileMutation = useUpdateProfile();
+  const updateAvatarMutation = useUpdateAvatar();
   const updateStatusMutation = useUpdateStatus();
+  const changePasswordMutation = useChangePassword();
+  const deactivateAccountMutation = useDeactivateAccount();
 
   const [editData, setEditData] = useState({
-    username: "",
-    display_name: "",
+    displayName: "",
     bio: "",
   });
 
-  useEffect(() => {
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+
+  React.useEffect(() => {
     if (profile) {
       setEditData({
-        username: profile.username,
-        display_name: profile.display_name,
+        displayName: profile.displayName,
         bio: profile.bio || "",
       });
     }
@@ -58,6 +73,13 @@ const ProfilePage: React.FC = () => {
   ) => {
     setEditData({
       ...editData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPasswordData({
+      ...passwordData,
       [e.target.name]: e.target.value,
     });
   };
@@ -73,8 +95,7 @@ const ProfilePage: React.FC = () => {
   const handleCancel = () => {
     if (profile) {
       setEditData({
-        username: profile.username,
-        display_name: profile.display_name,
+        displayName: profile.displayName,
         bio: profile.bio || "",
       });
     }
@@ -85,7 +106,68 @@ const ProfilePage: React.FC = () => {
     updateStatusMutation.mutate(status);
   };
 
-  const getStatusColor = (status: UserStatus): string => {
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("File quá lớn! Vui lòng chọn file nhỏ hơn 5MB");
+        return;
+      }
+
+      // Check file type
+      if (!file.type.startsWith("image/")) {
+        alert("Vui lòng chọn file ảnh!");
+        return;
+      }
+
+      updateAvatarMutation.mutate(file);
+    }
+  };
+
+  const handleChangePassword = () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      alert("Mật khẩu xác nhận không khớp!");
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      alert("Mật khẩu mới phải có ít nhất 6 ký tự!");
+      return;
+    }
+
+    changePasswordMutation.mutate(
+      {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      },
+      {
+        onSuccess: () => {
+          setIsChangingPassword(false);
+          setPasswordData({
+            currentPassword: "",
+            newPassword: "",
+            confirmPassword: "",
+          });
+        },
+      }
+    );
+  };
+
+  const handleDeactivate = () => {
+    const confirmed = window.confirm(
+      "Bạn có chắc chắn muốn vô hiệu hóa tài khoản? Hành động này không thể hoàn tác!"
+    );
+    if (confirmed) {
+      deactivateAccountMutation.mutate();
+    }
+  };
+
+  const getStatusColor = (status: string): string => {
     switch (status) {
       case "ONLINE":
         return "bg-green-500";
@@ -98,7 +180,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  const getStatusLabel = (status: UserStatus): string => {
+  const getStatusLabel = (status: string): string => {
     switch (status) {
       case "ONLINE":
         return "Trực tuyến";
@@ -120,14 +202,32 @@ const ProfilePage: React.FC = () => {
       .slice(0, 2);
   };
 
-  if (isLoading) {
-    return <div>Loading...</div>;
+  // const formatDate = (timestamp: number): string => {
+  //   return new Date(timestamp).toLocaleDateString("vi-VN", {
+  //     year: "numeric",
+  //     month: "long",
+  //     day: "numeric",
+  //   });
+  // };
+
+  if (loadingProfile) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Đang tải hồ sơ...</p>
+        </div>
+      </div>
+    );
   }
 
-  if (!profile)
+  if (!profile) {
     return (
-      <div className="flex justify-center">"Không tải được thông tin user"</div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <p className="text-red-600">Không thể tải hồ sơ. Vui lòng thử lại!</p>
+      </div>
     );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4">
@@ -151,27 +251,40 @@ const ProfilePage: React.FC = () => {
                 <div className="flex flex-col items-center">
                   <div className="relative group">
                     <Avatar className="w-32 h-32 border-4 border-white dark:border-gray-700 shadow-lg">
-                      <AvatarImage
-                        src={profile.avatar_url || "/default-avatar.png"}
-                      />
+                      <AvatarImage src={profile.avatarUrl || ""} />
                       <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-3xl">
-                        {getInitials(profile.display_name)}
+                        {getInitials(profile.displayName)}
                       </AvatarFallback>
                     </Avatar>
                     <div
-                      className={`absolute bottom-2 right-2 w-6 h-6 ${getStatusColor(
+                      className={`z-50 absolute bottom-2 right-2 w-6 h-6 ${getStatusColor(
                         profile.status
                       )} border-4 border-white dark:border-gray-800 rounded-full`}
                     ></div>
 
                     {/* Upload button overlay */}
-                    <button className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-50 rounded-full transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <Camera className="w-8 h-8 text-white" />
+                    <button
+                      onClick={handleAvatarClick}
+                      disabled={updateAvatarMutation.isPending}
+                      className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-50 rounded-full transition-all flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer"
+                    >
+                      {updateAvatarMutation.isPending ? (
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                      ) : (
+                        <Camera className="w-8 h-8 text-white" />
+                      )}
                     </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                    />
                   </div>
 
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white mt-4">
-                    {profile.display_name}
+                    {profile.displayName}
                   </h2>
                   <p className="text-gray-500 dark:text-gray-400">
                     @{profile.username}
@@ -194,6 +307,7 @@ const ProfilePage: React.FC = () => {
                       <button
                         key={status}
                         onClick={() => handleStatusChange(status)}
+                        disabled={updateStatusMutation.isPending}
                         className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                           profile.status === status
                             ? "bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100"
@@ -220,7 +334,8 @@ const ProfilePage: React.FC = () => {
           </div>
 
           {/* Right Column - Profile Info */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Profile Info Card */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -250,9 +365,16 @@ const ProfilePage: React.FC = () => {
                         <X className="w-4 h-4" />
                         Hủy
                       </Button>
-                      <Button onClick={handleSave} size="sm" className="gap-2">
+                      <Button
+                        onClick={handleSave}
+                        size="sm"
+                        className="gap-2"
+                        disabled={updateProfileMutation.isPending}
+                      >
                         <Save className="w-4 h-4" />
-                        Lưu
+                        {updateProfileMutation.isPending
+                          ? "Đang lưu..."
+                          : "Lưu"}
                       </Button>
                     </div>
                   )}
@@ -260,64 +382,57 @@ const ProfilePage: React.FC = () => {
               </CardHeader>
 
               <CardContent className="space-y-6">
-                {/* Username */}
+                {/* Username - Read only */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
                     <User className="w-4 h-4" />
                     Username
                   </label>
-                  {isEditing ? (
-                    <Input
-                      name="username"
-                      value={editData.username}
-                      onChange={handleInputChange}
-                      placeholder="johndoe"
-                      className="h-11"
-                    />
-                  ) : (
-                    <p className="text-gray-900 dark:text-white font-medium px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      @{profile.username}
-                    </p>
-                  )}
+                  <p className="text-gray-900 dark:text-white font-medium px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    @{profile.username}
+                  </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Username dùng để đăng nhập và được mention trong chat
+                    Username không thể thay đổi
                   </p>
                 </div>
 
                 {/* Display Name */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                    <User className="w-4 h-4" />
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Tên hiển thị
                   </label>
                   {isEditing ? (
                     <Input
                       name="displayName"
-                      value={editData.display_name}
+                      value={editData.displayName}
                       onChange={handleInputChange}
                       placeholder="John Doe"
                       className="h-11"
                     />
                   ) : (
                     <p className="text-gray-900 dark:text-white font-medium px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      {profile.display_name}
+                      {profile.displayName}
                     </p>
                   )}
                 </div>
 
-                {/* Email */}
+                {/* Email - Read only */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
                     <Mail className="w-4 h-4" />
                     Email
                   </label>
-                  <p className="text-gray-900 dark:text-white font-medium px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    {/* {profile.email} */}
-                    "Email dang ở phân account chua chuyển qua"
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Email không thể thay đổi. Liên hệ admin nếu cần hỗ trợ.
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="flex-1 text-gray-900 dark:text-white font-medium px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      {profile.email}
+                    </p>
+                    {profile.isVerified && (
+                      <Badge variant="default" className="bg-green-600">
+                        <Check className="w-3 h-3 mr-1" />
+                        Đã xác thực
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
                 {/* Bio */}
@@ -339,32 +454,29 @@ const ProfilePage: React.FC = () => {
                       {profile.bio || "Chưa có bio"}
                     </p>
                   )}
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Tối đa 200 ký tự
-                  </p>
                 </div>
 
-                <Separator />
+                {/* <Separator /> */}
 
                 {/* Account Info */}
-                <div className="space-y-3">
+                {/* <div className="space-y-3">
                   <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                     Thông tin tài khoản
                   </h3>
                   <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
                     <Clock className="w-4 h-4" />
-                    <span>Tham gia: Tháng 11, 2025</span>
+                    <span>Tham gia: {formatDate(1761705970590)}</span>
                   </div>
                   <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-                    <Check className="w-4 h-4 text-green-500" />
-                    <span>Email đã xác thực</span>
+                    <Shield className="w-4 h-4" />
+                    <span>Phương thức: {"LOCAL"}</span>
                   </div>
-                </div>
+                </div> */}
               </CardContent>
             </Card>
 
             {/* Security Card */}
-            <Card className="mt-6">
+            <Card>
               <CardHeader>
                 <CardTitle>Bảo mật</CardTitle>
                 <CardDescription>
@@ -372,17 +484,78 @@ const ProfilePage: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Button variant="outline" className="w-full justify-start">
-                  Đổi mật khẩu
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  Xác thực 2 yếu tố (2FA)
-                </Button>
+                {!isChangingPassword ? (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => setIsChangingPassword(true)}
+                  >
+                    <Shield className="w-4 h-4 mr-2" />
+                    Đổi mật khẩu
+                  </Button>
+                ) : (
+                  <div className="space-y-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <Input
+                      type="password"
+                      name="currentPassword"
+                      placeholder="Mật khẩu hiện tại"
+                      value={passwordData.currentPassword}
+                      onChange={handlePasswordChange}
+                    />
+                    <Input
+                      type="password"
+                      name="newPassword"
+                      placeholder="Mật khẩu mới"
+                      value={passwordData.newPassword}
+                      onChange={handlePasswordChange}
+                    />
+                    <Input
+                      type="password"
+                      name="confirmPassword"
+                      placeholder="Xác nhận mật khẩu mới"
+                      value={passwordData.confirmPassword}
+                      onChange={handlePasswordChange}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => {
+                          setIsChangingPassword(false);
+                          setPasswordData({
+                            currentPassword: "",
+                            newPassword: "",
+                            confirmPassword: "",
+                          });
+                        }}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        Hủy
+                      </Button>
+                      <Button
+                        onClick={handleChangePassword}
+                        disabled={changePasswordMutation.isPending}
+                        className="flex-1"
+                      >
+                        {changePasswordMutation.isPending
+                          ? "Đang xử lý..."
+                          : "Cập nhật"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <Separator />
+
                 <Button
                   variant="outline"
-                  className="w-full justify-start text-red-600 hover:text-red-700"
+                  className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  onClick={handleDeactivate}
+                  disabled={deactivateAccountMutation.isPending}
                 >
-                  Xóa tài khoản
+                  <LogOut className="w-4 h-4 mr-2" />
+                  {deactivateAccountMutation.isPending
+                    ? "Đang xử lý..."
+                    : "Vô hiệu hóa tài khoản"}
                 </Button>
               </CardContent>
             </Card>

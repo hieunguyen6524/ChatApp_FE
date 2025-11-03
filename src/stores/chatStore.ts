@@ -102,21 +102,19 @@ export const useChatStore = create<ChatState>((set) => ({
   updateWorkspace: (workspaceId, updates) =>
     set((state) => ({
       workspaces: state.workspaces.map((w) =>
-        w.workspace_id === workspaceId ? { ...w, ...updates } : w
+        w.workspaceId === workspaceId ? { ...w, ...updates } : w
       ),
       currentWorkspace:
-        state.currentWorkspace?.workspace_id === workspaceId
+        state.currentWorkspace?.workspaceId === workspaceId
           ? { ...state.currentWorkspace, ...updates }
           : state.currentWorkspace,
     })),
 
   removeWorkspace: (workspaceId) =>
     set((state) => ({
-      workspaces: state.workspaces.filter(
-        (w) => w.workspace_id !== workspaceId
-      ),
+      workspaces: state.workspaces.filter((w) => w.workspaceId !== workspaceId),
       currentWorkspace:
-        state.currentWorkspace?.workspace_id === workspaceId
+        state.currentWorkspace?.workspaceId === workspaceId
           ? null
           : state.currentWorkspace,
     })),
@@ -135,10 +133,10 @@ export const useChatStore = create<ChatState>((set) => ({
   updateConversation: (conversationId, updates) =>
     set((state) => ({
       conversations: state.conversations.map((c) =>
-        c.conversation_id === conversationId ? { ...c, ...updates } : c
+        c.conversationId === conversationId ? { ...c, ...updates } : c
       ),
       currentConversation:
-        state.currentConversation?.conversation_id === conversationId
+        state.currentConversation?.conversationId === conversationId
           ? { ...state.currentConversation, ...updates }
           : state.currentConversation,
     })),
@@ -146,10 +144,10 @@ export const useChatStore = create<ChatState>((set) => ({
   removeConversation: (conversationId) =>
     set((state) => ({
       conversations: state.conversations.filter(
-        (c) => c.conversation_id !== conversationId
+        (c) => c.conversationId !== conversationId
       ),
       currentConversation:
-        state.currentConversation?.conversation_id === conversationId
+        state.currentConversation?.conversationId === conversationId
           ? null
           : state.currentConversation,
     })),
@@ -157,8 +155,8 @@ export const useChatStore = create<ChatState>((set) => ({
   incrementUnreadCount: (conversationId) =>
     set((state) => ({
       conversations: state.conversations.map((c) =>
-        c.conversation_id === conversationId
-          ? { ...c, unread_count: (c.unread_count || 0) + 1 }
+        c.conversationId === conversationId
+          ? { ...c, unread_count: (c.unreadCount || 0) + 1 }
           : c
       ),
     })),
@@ -166,7 +164,7 @@ export const useChatStore = create<ChatState>((set) => ({
   resetUnreadCount: (conversationId) =>
     set((state) => ({
       conversations: state.conversations.map((c) =>
-        c.conversation_id === conversationId ? { ...c, unread_count: 0 } : c
+        c.conversationId === conversationId ? { ...c, unread_count: 0 } : c
       ),
     })),
 
@@ -190,7 +188,7 @@ export const useChatStore = create<ChatState>((set) => ({
           [conversationId]: [...existingMessages, message],
         },
         conversations: state.conversations.map((c) =>
-          c.conversation_id === conversationId
+          c.conversationId === conversationId
             ? { ...c, last_message: message, updated_at: message.created_at }
             : c
         ),

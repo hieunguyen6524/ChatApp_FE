@@ -3,24 +3,24 @@ export type UserStatus = "ONLINE" | "OFFLINE" | "AWAY" | "DND";
 export type AuthProvider = "LOCAL" | "GOOGLE" | "SSO";
 
 export interface Account {
-  account_id: number;
+  accountId: number;
   email: string;
-  provider: AuthProvider;
-  is_verified: boolean;
-  is_active: boolean;
-  created_at: number;
-  updated_at: number;
+  provider: string;
+  isVerified: boolean;
+  isActive: boolean;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface Profile {
-  account_id: number;
+  accountId: number;
   username: string;
-  display_name: string;
-  avatar_url: string | null;
+  displayName: string;
+  avatarUrl: string | null;
   bio: string | null;
-  status: UserStatus;
-  last_active_at: number | null;
-  updated_at: number | null;
+  status: string;
+  lastActiveAt: number | null;
+  updatedAt: number | null;
 }
 
 export interface User {

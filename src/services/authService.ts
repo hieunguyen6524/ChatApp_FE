@@ -1,24 +1,55 @@
 import { apiClient } from "./apiClient";
-import type {
-  LoginRequest,
-  RegisterRequest,
-  AuthResponse,
-  GoogleAuthRequest,
-} from "../types/auth.types";
-import type { ApiResponse } from "@/types/common.types";
+import type { ApiResponse } from "../types/common.types";
+import type { GoogleAuthRequest } from "@/types/auth.types";
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  username: string;
+  displayName: string;
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  user: {
+    account: {
+      accountId: number;
+      email: string;
+      provider: string;
+      isVerified: boolean;
+      isActive: boolean;
+      createdAt: number;
+      updatedAt: number;
+    };
+    profile: {
+      accountId: number;
+      username: string;
+      displayName: string;
+      avatarUrl: string | null;
+      bio: string | null;
+      status: string;
+      lastActiveAt: number | null;
+      updatedAt: number | null;
+    };
+  };
+}
 
 export const authService = {
-  // Login with email & password
-  login: async (data: LoginRequest): Promise<ApiResponse<AuthResponse>> => {
-    return apiClient.post<ApiResponse<AuthResponse>>("/auth/login", data);
-  },
-
-  // Register new account
+  // POST /api/auth/register
   register: async (
     data: RegisterRequest
   ): Promise<ApiResponse<AuthResponse>> => {
-    console.log(data);
     return apiClient.post<ApiResponse<AuthResponse>>("/auth/register", data);
+  },
+
+  // POST /api/auth/login
+  login: async (data: LoginRequest): Promise<ApiResponse<AuthResponse>> => {
+    return apiClient.post<ApiResponse<AuthResponse>>("/auth/login", data);
   },
 
   // Google OAuth login
@@ -35,38 +66,42 @@ export const authService = {
     return apiClient.get("/auth/google/url");
   },
 
-  // Logout (clears cookies on server)
+  // POST /api/auth/logout
   logout: async (): Promise<ApiResponse<void>> => {
     return apiClient.post<ApiResponse<void>>("/auth/logout");
   },
 
-  // Refresh access token (using cookie)
-  refreshToken: async (): Promise<ApiResponse<{ access_token: string }>> => {
-    return apiClient.post<ApiResponse<{ access_token: string }>>(
+  // POST /api/auth/refresh (cookie auto-sent)
+  refreshToken: async (): Promise<ApiResponse<{ accessToken: string }>> => {
+    return apiClient.post<ApiResponse<{ accessToken: string }>>(
       "/auth/refresh"
     );
   },
 
-  // Verify email
+  // GET /api/auth/verify-email?token=xxx
   verifyEmail: async (token: string): Promise<ApiResponse<void>> => {
-    return apiClient.post<ApiResponse<void>>("/auth/verify-email", { token });
+    return apiClient.get<ApiResponse<void>>(
+      `/auth/verify-email?token=${token}`
+    );
   },
 
-  // Request password reset
+  // POST /api/auth/forgot-password
   forgotPassword: async (email: string): Promise<ApiResponse<void>> => {
     return apiClient.post<ApiResponse<void>>("/auth/forgot-password", {
       email,
     });
   },
 
-  // Reset password
+  // POST /api/auth/reset-password?token=xxx
   resetPassword: async (
     token: string,
     newPassword: string
   ): Promise<ApiResponse<void>> => {
-    return apiClient.post<ApiResponse<void>>("/auth/reset-password", {
-      token,
-      new_password: newPassword,
-    });
+    return apiClient.post<ApiResponse<void>>(
+      `/auth/reset-password?token=${token}`,
+      {
+        newPassword,
+      }
+    );
   },
 };

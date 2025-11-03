@@ -81,21 +81,21 @@ export const useUpdateWorkspace = () => {
   });
 };
 
-export const useDeleteWorkspace = () => {
-  const queryClient = useQueryClient();
-  const { removeWorkspace } = useChatStore();
+// export const useDeleteWorkspace = () => {
+//   const queryClient = useQueryClient();
+//   const { removeWorkspace } = useChatStore();
 
-  return useMutation({
-    mutationFn: (workspaceId: number) =>
-      workspaceService.deleteWorkspace(workspaceId),
-    onSuccess: (_, workspaceId) => {
-      removeWorkspace(workspaceId);
-      queryClient.invalidateQueries({ queryKey: WORKSPACE_KEYS.lists() });
+//   return useMutation({
+//     mutationFn: (workspaceId: number) =>
+//       workspaceService.deleteWorkspace(workspaceId),
+//     onSuccess: (_, workspaceId) => {
+//       removeWorkspace(workspaceId);
+//       queryClient.invalidateQueries({ queryKey: WORKSPACE_KEYS.lists() });
 
-      toast.success("Xóa workspace thành công!");
-    },
-  });
-};
+//       toast.success("Xóa workspace thành công!");
+//     },
+//   });
+// };
 
 export const useWorkspaceMembers = (workspaceId: number) => {
   return useQuery({

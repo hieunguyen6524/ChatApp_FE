@@ -1,71 +1,109 @@
 import { apiClient } from "./apiClient";
-import type { Workspace, WorkspaceMember } from "../types/workspace.types";
-import type { ApiResponse } from "@/types/common.types";
+import type { ApiResponse } from "../types/common.types";
+import type { WorkspaceMember } from "@/types/workspace.types";
+
+export interface WorkspaceData {
+  workspaceId: number;
+  name: string;
+  description: string | null;
+  createdBy: number;
+  isArchived: boolean;
+  createdAt: number;
+  updatedAt: number;
+  role?: string;
+}
+
+export interface WorkspaceMemberData {
+  id: number;
+  workspaceId: number;
+  accountId: number;
+  role: string;
+  joinedAt: number;
+  isActive: boolean;
+  profile: {
+    accountId: number;
+    username: string;
+    displayName: string;
+    avatarUrl: string | null;
+    status: string;
+  };
+}
 
 export const workspaceService = {
-  // Get all workspaces for current user
-  getMyWorkspaces: async (): Promise<ApiResponse<Workspace[]>> => {
-    return apiClient.get<ApiResponse<Workspace[]>>("/workspaces");
-  },
-
-  // Get workspace by ID
-  getWorkspace: async (
-    workspaceId: number
-  ): Promise<ApiResponse<Workspace>> => {
-    return apiClient.get<ApiResponse<Workspace>>(`/workspaces/${workspaceId}`);
-  },
-
-  // Create workspace
+  // POST /api/workspaces
   createWorkspace: async (data: {
     name: string;
     description?: string;
-  }): Promise<ApiResponse<Workspace>> => {
-    return apiClient.post<ApiResponse<Workspace>>("/workspaces", data);
+  }): Promise<ApiResponse<WorkspaceData>> => {
+    return apiClient.post<ApiResponse<WorkspaceData>>("/workspaces", data);
   },
 
-  // Update workspace
+  // GET /api/workspaces
+  getMyWorkspaces: async (): Promise<ApiResponse<WorkspaceData[]>> => {
+    return apiClient.get<ApiResponse<WorkspaceData[]>>("/workspaces");
+  },
+
+  // GET /api/workspaces/:id
+  getWorkspace: async (
+    workspaceId: number
+  ): Promise<ApiResponse<WorkspaceData>> => {
+    return apiClient.get<ApiResponse<WorkspaceData>>(
+      `/workspaces/${workspaceId}`
+    );
+  },
+
+  // PATCH /api/workspaces/:id
   updateWorkspace: async (
     workspaceId: number,
-    data: Partial<{ name: string; description: string }>
-  ): Promise<ApiResponse<Workspace>> => {
-    return apiClient.put<ApiResponse<Workspace>>(
+    data: { name?: string; description?: string }
+  ): Promise<ApiResponse<WorkspaceData>> => {
+    return apiClient.patch<ApiResponse<WorkspaceData>>(
       `/workspaces/${workspaceId}`,
       data
     );
   },
 
-  // Delete workspace
-  deleteWorkspace: async (workspaceId: number): Promise<ApiResponse<void>> => {
-    return apiClient.delete<ApiResponse<void>>(`/workspaces/${workspaceId}`);
+  // POST /api/workspaces/:id (Add user)
+  addMember: async (
+    workspaceId: number,
+    accountId: number
+  ): Promise<ApiResponse<void>> => {
+    return apiClient.post<ApiResponse<void>>(`/workspaces/${workspaceId}`, {
+      accountId,
+    });
   },
 
-  // Get workspace members
-  getWorkspaceMembers: async (
+  // GET /api/workspaces/:id/members
+  getMembers: async (
     workspaceId: number
-  ): Promise<ApiResponse<WorkspaceMember[]>> => {
-    return apiClient.get<ApiResponse<WorkspaceMember[]>>(
+  ): Promise<ApiResponse<WorkspaceMemberData[]>> => {
+    return apiClient.get<ApiResponse<WorkspaceMemberData[]>>(
       `/workspaces/${workspaceId}/members`
     );
   },
 
-  // Invite member to workspace
-  inviteMember: async (
-    workspaceId: number,
-    data: { email: string; role_id: number }
-  ): Promise<ApiResponse<void>> => {
-    return apiClient.post<ApiResponse<void>>(
-      `/workspaces/${workspaceId}/members/invite`,
-      data
-    );
-  },
-
-  // Remove member from workspace
+  // DELETE /api/workspaces/:id/members/:accountId
   removeMember: async (
     workspaceId: number,
     accountId: number
   ): Promise<ApiResponse<void>> => {
     return apiClient.delete<ApiResponse<void>>(
       `/workspaces/${workspaceId}/members/${accountId}`
+    );
+  },
+
+  // DELETE /api/workspaces/:id/leave
+  leaveWorkspace: async (workspaceId: number): Promise<ApiResponse<void>> => {
+    return apiClient.delete<ApiResponse<void>>(
+      `/workspaces/${workspaceId}/leave`
+    );
+  },
+
+  getWorkspaceMembers: async (
+    workspaceId: number
+  ): Promise<ApiResponse<WorkspaceMember[]>> => {
+    return apiClient.get<ApiResponse<WorkspaceMember[]>>(
+      `/workspaces/${workspaceId}/members`
     );
   },
 };

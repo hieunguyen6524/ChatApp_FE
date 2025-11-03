@@ -5,32 +5,41 @@ export type ConversationType = "CHANNEL" | "DM_PAIR" | "DM_GROUP";
 export type ContentType = "TEXT" | "MARKDOWN" | "CODE" | "SYSTEM";
 
 export interface Conversation {
-  conversation_id: number;
-  workspace_id: number;
+  conversationId: number;
+  workspaceId: number;
   name: string | null;
   description: string | null;
-  type: ConversationType;
-  is_private: boolean;
-  is_archived: boolean;
-  created_by: number | null;
-  created_at: number;
-  updated_at: number;
-  unread_count?: number;
-  last_message?: Message;
+  type: "CHANNEL" | "DM_PAIR" | "DM_GROUP";
+  isPrivate: boolean;
+  isArchived: boolean;
+  createdBy: number;
+  createdAt: number;
+  updatedAt: number;
+  unreadCount?: number;
+  lastMessage?: {
+    messageId: number;
+    content: string;
+    createdAt: number;
+  };
 }
 
 export interface ConversationMember {
   id: number;
-  conversation_id: number;
-  account_id: number;
-  is_channel_admin: boolean;
-  joined_at: number;
-  last_read_message_id: number | null;
-  last_read_at: number | null;
-  is_notif_enabled: boolean;
-  is_active: boolean;
-  left_at: number | null;
-  profile?: Profile;
+  conversationId: number;
+  accountId: number;
+  isChannelAdmin: boolean;
+  joinedAt: number;
+  lastReadMessageId: number | null;
+  lastReadAt: number | null;
+  isNotifEnabled: boolean;
+  isActive: boolean;
+  profile: {
+    accountId: number;
+    username: string;
+    displayName: string;
+    avatarUrl: string | null;
+    status: string;
+  };
 }
 
 export interface Message {

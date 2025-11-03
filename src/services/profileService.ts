@@ -1,44 +1,41 @@
 import { apiClient } from "./apiClient";
-import type { Profile, UserStatus } from "../types/user.types";
-import type { ApiResponse } from "@/types/common.types";
+import type { ApiResponse } from "../types/common.types";
+
+export interface ProfileData {
+  accountId: number;
+  email: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  bio: string | null;
+  status: string;
+  roles: string[];
+  isVerified: boolean;
+}
 
 export const profileService = {
-  // Get current user profile
-  getMyProfile: async (): Promise<ApiResponse<Profile>> => {
-    return apiClient.get<ApiResponse<Profile>>("/profile");
+  // GET /api/me
+  getMe: async (): Promise<ApiResponse<ProfileData>> => {
+    return apiClient.get<ApiResponse<ProfileData>>("/me");
   },
 
-  // Get profile by account ID
-  getProfile: async (accountId: number): Promise<ApiResponse<Profile>> => {
-    return apiClient.get<ApiResponse<Profile>>(`/profile/${accountId}`);
+  // PATCH /api/me
+  updateProfile: async (data: {
+    displayName?: string;
+    bio?: string;
+  }): Promise<ApiResponse<ProfileData>> => {
+    return apiClient.patch<ApiResponse<ProfileData>>("/me", data);
   },
 
-  // Update profile
-  updateProfile: async (
-    data: Partial<{
-      username: string;
-      display_name: string;
-      bio: string;
-      avatar_url: string;
-    }>
-  ): Promise<ApiResponse<Profile>> => {
-    return apiClient.put<ApiResponse<Profile>>("/profile", data);
-  },
-
-  // Update status
-  updateStatus: async (status: UserStatus): Promise<ApiResponse<Profile>> => {
-    return apiClient.patch<ApiResponse<Profile>>("/profile/status", { status });
-  },
-
-  // Upload avatar
-  uploadAvatar: async (
+  // PATCH /api/me/avatar (multipart/form-data)
+  updateAvatar: async (
     file: File
-  ): Promise<ApiResponse<{ avatar_url: string }>> => {
+  ): Promise<ApiResponse<{ avatarUrl: string }>> => {
     const formData = new FormData();
-    formData.append("avatar", file);
+    formData.append("file", file);
 
-    return apiClient.post<ApiResponse<{ avatar_url: string }>>(
-      "/profile/avatar",
+    return apiClient.patch<ApiResponse<{ avatarUrl: string }>>(
+      "/me/avatar",
       formData,
       {
         headers: {
@@ -46,5 +43,23 @@ export const profileService = {
         },
       }
     );
+  },
+
+  // PATCH /api/me/status
+  updateStatus: async (status: string): Promise<ApiResponse<ProfileData>> => {
+    return apiClient.patch<ApiResponse<ProfileData>>("/me/status", { status });
+  },
+
+  // PATCH /api/me/password
+  changePassword: async (data: {
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<ApiResponse<void>> => {
+    return apiClient.patch<ApiResponse<void>>("/me/password", data);
+  },
+
+  // DELETE /api/me
+  deactivateAccount: async (): Promise<ApiResponse<void>> => {
+    return apiClient.delete<ApiResponse<void>>("/me");
   },
 };

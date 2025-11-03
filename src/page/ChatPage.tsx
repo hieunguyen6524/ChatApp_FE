@@ -12,6 +12,8 @@ import {
   Users,
   Phone,
   Video,
+  Settings,
+  UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,156 +21,129 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-interface Message {
-  id: number;
-  content: string;
-  sender: {
-    id: number;
-    name: string;
-    avatar?: string;
+import { useChatStore } from "../stores/chatStore";
+import type { Conversation } from "@/types/message.types";
+import {
+  useConversations,
+  useCreateConversation,
+} from "@/hooks/conversation/useConversation";
+import {
+  // useWorkspaceMembers,
+  useWorkspaces,
+} from "@/hooks/workspace/useWorkspace";
+
+interface ConversationItemProps {
+  conversation: Conversation;
+  isSelected: boolean;
+  onClick: () => void;
+}
+
+const ConversationItem: React.FC<ConversationItemProps> = ({
+  conversation,
+  isSelected,
+  onClick,
+}) => {
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
-  timestamp: Date;
-  isOwn: boolean;
-}
 
-interface Conversation {
-  id: number;
-  name: string;
-  type: "channel" | "dm";
-  isPrivate: boolean;
-  lastMessage?: string;
-  unreadCount: number;
-  isOnline?: boolean;
-}
+  const isChannel = conversation.type === "CHANNEL";
+
+  if (!conversation) return null;
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+        isSelected
+          ? "bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100"
+          : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+      }`}
+    >
+      {isChannel ? (
+        conversation.isPrivate ? (
+          <Lock className="w-4 h-4 flex-shrink-0" />
+        ) : (
+          <Hash className="w-4 h-4 flex-shrink-0" />
+        )
+      ) : (
+        <Avatar className="w-8 h-8 flex-shrink-0">
+          <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-600 text-white text-xs">
+            {getInitials(conversation.name || "DM")}
+          </AvatarFallback>
+        </Avatar>
+      )}
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium truncate">
+            {conversation.name || "Direct Message"}
+          </span>
+          {(conversation.unreadCount || 0) > 0 && (
+            <Badge className="bg-blue-600 text-white text-xs px-2 ml-2">
+              {conversation.unreadCount}
+            </Badge>
+          )}
+        </div>
+        {conversation.lastMessage && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+            {conversation.lastMessage.content}
+          </p>
+        )}
+      </div>
+    </button>
+  );
+};
 
 const ChatPage: React.FC = () => {
-  const [selectedConversation, setSelectedConversation] =
-    useState<Conversation | null>(null);
   const [messageInput, setMessageInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  // const [showCreateDialog, setShowCreateDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Mock data
-  const workspaces = [
-    { id: 1, name: "My Workspace" },
-    { id: 2, name: "Team Project" },
-  ];
+  // Zustand store
+  const {
+    currentWorkspace,
+    setCurrentWorkspace,
+    currentConversation,
+    setCurrentConversation,
+  } = useChatStore();
 
-  const [currentWorkspace] = useState(workspaces[0]);
+  // React Query hooks
+  const { data: workspaces, isLoading: loadingWorkspaces } = useWorkspaces(); // -> Workspace[]
 
-  const conversations: Conversation[] = [
-    {
-      id: 1,
-      name: "general",
-      type: "channel",
-      isPrivate: false,
-      lastMessage: "Chào mọi người!",
-      unreadCount: 3,
-    },
-    {
-      id: 2,
-      name: "random",
-      type: "channel",
-      isPrivate: false,
-      lastMessage: "Haha 😄",
-      unreadCount: 0,
-    },
-    {
-      id: 3,
-      name: "dev-team",
-      type: "channel",
-      isPrivate: true,
-      lastMessage: "Review PR mới nha",
-      unreadCount: 1,
-    },
-    {
-      id: 4,
-      name: "Alice Johnson",
-      type: "dm",
-      isPrivate: false,
-      lastMessage: "Ok, cảm ơn!",
-      unreadCount: 0,
-      isOnline: true,
-    },
-    {
-      id: 5,
-      name: "Bob Smith",
-      type: "dm",
-      isPrivate: false,
-      lastMessage: "Meeting lúc 3pm nhé",
-      unreadCount: 2,
-      isOnline: false,
-    },
-  ];
+  // const { data: members, isLoading: loadingWorkspaces } = useWorkspaceMembers(
+  //   currentWorkspace?.workspaceId || 0
+  // );
+  const { data: conversations, isLoading: loadingConversations } =
+    useConversations(currentWorkspace?.workspaceId || 0);
+  const createConversationMutation = useCreateConversation();
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      content: "Chào mọi người! 👋",
-      sender: { id: 2, name: "Alice Johnson" },
-      timestamp: new Date("2025-11-02T09:00:00"),
-      isOwn: false,
-    },
-    {
-      id: 2,
-      content: "Hôm nay có gì mới không?",
-      sender: { id: 2, name: "Alice Johnson" },
-      timestamp: new Date("2025-11-02T09:01:00"),
-      isOwn: false,
-    },
-    {
-      id: 3,
-      content: "Chào Alice! Có một số update về dự án mới đây",
-      sender: { id: 1, name: "You" },
-      timestamp: new Date("2025-11-02T09:05:00"),
-      isOwn: true,
-    },
-    {
-      id: 4,
-      content: "Tuyệt vời! Cho mình xem được không?",
-      sender: { id: 2, name: "Alice Johnson" },
-      timestamp: new Date("2025-11-02T09:06:00"),
-      isOwn: false,
-    },
-  ]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
+  // Set default workspace
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (workspaces && workspaces.length > 0 && !currentWorkspace) {
+      setCurrentWorkspace(workspaces[0]);
+    }
+  }, [workspaces, currentWorkspace, setCurrentWorkspace]);
 
   const handleSendMessage = () => {
-    if (messageInput.trim()) {
-      const newMessage: Message = {
-        id: messages.length + 1,
-        content: messageInput,
-        sender: { id: 1, name: "You" },
-        timestamp: new Date(),
-        isOwn: true,
-      };
-      setMessages([...messages, newMessage]);
-      setMessageInput("");
+    if (!messageInput.trim() || !currentConversation) return;
 
-      // Simulate typing indicator
-      setTimeout(() => {
-        setIsTyping(true);
-        setTimeout(() => {
-          setIsTyping(false);
-          const replyMessage: Message = {
-            id: messages.length + 2,
-            content: "Cảm ơn bạn đã gửi tin nhắn! 😊",
-            sender: { id: 2, name: "Alice Johnson" },
-            timestamp: new Date(),
-            isOwn: false,
-          };
-          setMessages((prev) => [...prev, replyMessage]);
-        }, 2000);
-      }, 500);
-    }
+    // TODO: Implement send message with API
+    console.log("Send message:", messageInput);
+    setMessageInput("");
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -178,27 +153,86 @@ const ChatPage: React.FC = () => {
     }
   };
 
-  const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
+  const handleCreateChannel = () => {
+    if (!currentWorkspace) return;
+
+    const name = prompt("Tên channel:");
+    if (!name) return;
+
+    const isPrivate = confirm("Channel riêng tư?");
+
+    createConversationMutation.mutate({
+      workspaceId: currentWorkspace.workspaceId,
+      name,
+      type: "CHANNEL",
+      isPrivate,
     });
   };
 
-  const getInitials = (name: string): string => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+  const handleCreateDM = () => {
+    if (!currentWorkspace) return;
+
+    // TODO: Show user selection dialog
+    const accountIdStr = prompt("Nhập ID người dùng:");
+    if (!accountIdStr) return;
+
+    const accountId = parseInt(accountIdStr);
+    if (isNaN(accountId)) {
+      alert("ID không hợp lệ!");
+      return;
+    }
+
+    createConversationMutation.mutate({
+      workspaceId: currentWorkspace.workspaceId,
+      type: "DM_PAIR",
+      isPrivate: false,
+      memberIds: [accountId],
+    });
   };
 
-  useEffect(() => {
-    if (conversations.length > 0) {
-      setSelectedConversation(conversations[0]);
-    }
-  }, []);
+  const filteredConversations = conversations?.filter((conv) =>
+    conv.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const channels =
+    filteredConversations?.filter((c) => c.type === "CHANNEL") || [];
+  const directMessages =
+    filteredConversations?.filter(
+      (c) => c.type === "DM_PAIR" || c.type === "DM_GROUP"
+    ) || [];
+
+  if (loadingWorkspaces) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">
+            Đang tải workspace...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!workspaces || workspaces.length === 0) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <Hash className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            Chưa có workspace
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            Tạo workspace đầu tiên để bắt đầu chat
+          </p>
+          <Button onClick={() => alert("Tạo workspace")}>
+            <Plus className="w-4 h-4 mr-2" />
+            Tạo Workspace
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-white dark:bg-gray-900 flex">
@@ -206,9 +240,41 @@ const ChatPage: React.FC = () => {
       <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
         {/* Workspace Header */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
-            {currentWorkspace.name}
-          </h2>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-full text-left hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+                  {currentWorkspace?.name || "Select Workspace"}
+                </h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {workspaces.length} workspace
+                  {workspaces.length > 1 ? "s" : ""}
+                </p>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-72">
+              {workspaces.map((ws) => (
+                <DropdownMenuItem
+                  key={ws.workspaceId}
+                  onClick={() => setCurrentWorkspace(ws)}
+                  className={
+                    currentWorkspace?.workspaceId === ws.workspaceId
+                      ? "bg-blue-50 dark:bg-blue-900"
+                      : ""
+                  }
+                >
+                  <div className="flex-1">
+                    <p className="font-medium">{ws.name}</p>
+                    {ws.description && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {ws.description}
+                      </p>
+                    )}
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Search */}
@@ -218,6 +284,8 @@ const ChatPage: React.FC = () => {
             <Input
               type="text"
               placeholder="Tìm kiếm..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 rounded-full bg-gray-100 dark:bg-gray-700 border-0"
             />
           </div>
@@ -225,113 +293,99 @@ const ChatPage: React.FC = () => {
 
         {/* Conversations */}
         <ScrollArea className="flex-1">
-          {/* Channels */}
-          <div className="px-3 py-2">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
-                Channels
-              </h3>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
-                <Plus className="w-4 h-4" />
-              </Button>
+          {loadingConversations ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
-            <div className="space-y-1">
-              {conversations
-                .filter((c) => c.type === "channel")
-                .map((conv) => (
-                  <button
-                    key={conv.id}
-                    onClick={() => setSelectedConversation(conv)}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors ${
-                      selectedConversation?.id === conv.id
-                        ? "bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100"
-                        : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-                    }`}
+          ) : (
+            <>
+              {/* Channels */}
+              <div className="px-3 py-2">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                    Channels
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={handleCreateChannel}
                   >
-                    {conv.isPrivate ? (
-                      <Lock className="w-4 h-4 flex-shrink-0" />
-                    ) : (
-                      <Hash className="w-4 h-4 flex-shrink-0" />
-                    )}
-                    <span className="flex-1 truncate text-sm font-medium">
-                      {conv.name}
-                    </span>
-                    {conv.unreadCount > 0 && (
-                      <Badge className="bg-blue-600 text-white text-xs px-2">
-                        {conv.unreadCount}
-                      </Badge>
-                    )}
-                  </button>
-                ))}
-            </div>
-          </div>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="space-y-1">
+                  {channels.length === 0 ? (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+                      Chưa có channel
+                    </p>
+                  ) : (
+                    channels.map((conv) => (
+                      <ConversationItem
+                        key={conv.conversationId}
+                        conversation={conv}
+                        isSelected={
+                          currentConversation?.conversationId ===
+                          conv.conversationId
+                        }
+                        onClick={() => setCurrentConversation(conv)}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
 
-          <Separator className="my-2" />
+              <Separator className="my-2" />
 
-          {/* Direct Messages */}
-          <div className="px-3 py-2">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
-                Direct Messages
-              </h3>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="space-y-1">
-              {conversations
-                .filter((c) => c.type === "dm")
-                .map((conv) => (
-                  <button
-                    key={conv.id}
-                    onClick={() => setSelectedConversation(conv)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                      selectedConversation?.id === conv.id
-                        ? "bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100"
-                        : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-                    }`}
+              {/* Direct Messages */}
+              <div className="px-3 py-2">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                    Direct Messages
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={handleCreateDM}
                   >
-                    <div className="relative">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-600 text-white text-xs">
-                          {getInitials(conv.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      {conv.isOnline && (
-                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium truncate">
-                          {conv.name}
-                        </span>
-                        {conv.unreadCount > 0 && (
-                          <Badge className="bg-blue-600 text-white text-xs px-2">
-                            {conv.unreadCount}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {conv.lastMessage}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-            </div>
-          </div>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="space-y-1">
+                  {directMessages.length === 0 ? (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+                      Chưa có tin nhắn
+                    </p>
+                  ) : (
+                    directMessages.map((conv) => (
+                      <ConversationItem
+                        key={conv.conversationId}
+                        conversation={conv}
+                        isSelected={
+                          currentConversation?.conversationId ===
+                          conv.conversationId
+                        }
+                        onClick={() => setCurrentConversation(conv)}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </ScrollArea>
       </div>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
-        {selectedConversation ? (
+        {currentConversation ? (
           <>
             {/* Chat Header */}
             <div className="h-16 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 bg-white dark:bg-gray-800">
               <div className="flex items-center gap-3">
-                {selectedConversation.type === "channel" ? (
-                  selectedConversation.isPrivate ? (
+                {currentConversation.type === "CHANNEL" ? (
+                  currentConversation.isPrivate ? (
                     <Lock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                   ) : (
                     <Hash className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -339,19 +393,17 @@ const ChatPage: React.FC = () => {
                 ) : (
                   <Avatar className="w-8 h-8">
                     <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-600 text-white text-sm">
-                      {getInitials(selectedConversation.name)}
+                      DM
                     </AvatarFallback>
                   </Avatar>
                 )}
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {selectedConversation.name}
+                    {currentConversation.name || "Direct Message"}
                   </h2>
-                  {selectedConversation.type === "dm" && (
+                  {currentConversation.description && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {selectedConversation.isOnline
-                        ? "Đang hoạt động"
-                        : "Offline"}
+                      {currentConversation.description}
                     </p>
                   )}
                 </div>
@@ -369,84 +421,47 @@ const ChatPage: React.FC = () => {
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <Pin className="w-5 h-5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <MoreVertical className="w-5 h-5" />
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="rounded-full"
+                    >
+                      <MoreVertical className="w-5 h-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem>
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Thêm thành viên
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Settings className="w-4 h-4 mr-2" />
+                      Cài đặt
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-red-600">
+                      Rời cuộc trò chuyện
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
             {/* Messages Area */}
             <ScrollArea className="flex-1 p-4 bg-gray-50 dark:bg-gray-900">
               <div className="max-w-4xl mx-auto space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex gap-3 ${
-                      message.isOwn ? "flex-row-reverse" : ""
-                    }`}
-                  >
-                    {!message.isOwn && (
-                      <Avatar className="w-10 h-10 flex-shrink-0">
-                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
-                          {getInitials(message.sender.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
-                    <div
-                      className={`flex flex-col ${
-                        message.isOwn ? "items-end" : "items-start"
-                      } max-w-lg`}
-                    >
-                      {!message.isOwn && (
-                        <span className="text-xs font-semibold text-gray-900 dark:text-white mb-1">
-                          {message.sender.name}
-                        </span>
-                      )}
-                      <div
-                        className={`px-4 py-2 rounded-2xl ${
-                          message.isOwn
-                            ? "bg-blue-600 text-white rounded-tr-sm"
-                            : "bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-tl-sm"
-                        }`}
-                      >
-                        <p className="text-sm whitespace-pre-wrap break-words">
-                          {message.content}
-                        </p>
-                      </div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {formatTime(message.timestamp)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Typing indicator */}
-                {isTyping && (
-                  <div className="flex gap-3">
-                    <Avatar className="w-10 h-10 flex-shrink-0">
-                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
-                        AJ
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl rounded-tl-sm px-4 py-3">
-                      <div className="flex gap-1">
-                        <div
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "0ms" }}
-                        ></div>
-                        <div
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "150ms" }}
-                        ></div>
-                        <div
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "300ms" }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
+                {/* Empty state */}
+                <div className="text-center py-12">
+                  <Hash className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                    Chào mừng đến với{" "}
+                    {currentConversation.name || "cuộc trò chuyện"}
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Đây là đầu cuộc trò chuyện. Gửi tin nhắn đầu tiên!
+                  </p>
+                </div>
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
@@ -467,8 +482,10 @@ const ChatPage: React.FC = () => {
                       value={messageInput}
                       onChange={(e) => setMessageInput(e.target.value)}
                       onKeyPress={handleKeyPress}
-                      placeholder="Nhập tin nhắn..."
-                      className="pr-12 py-6 rounded-3xl bg-gray-100 dark:bg-gray-700 border-0 resize-none"
+                      placeholder={`Nhắn tin tới ${
+                        currentConversation.name || "cuộc trò chuyện"
+                      }...`}
+                      className="pr-12 py-6 rounded-3xl bg-gray-100 dark:bg-gray-700 border-0"
                     />
                     <Button
                       variant="ghost"

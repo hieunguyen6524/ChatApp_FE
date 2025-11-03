@@ -1,13 +1,14 @@
 import type { Profile, WorkspaceRole } from "./user.types";
 
 export interface Workspace {
-  workspace_id: number;
+  workspaceId: number;
   name: string;
   description: string | null;
-  created_by: number | null;
-  is_archived: boolean;
-  created_at: number;
-  updated_at: number;
+  createdBy: number;
+  isArchived: boolean;
+  createdAt: number;
+  updatedAt: number;
+  role?: string;
 }
 
 export interface WorkspaceMember {
