@@ -18,7 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { useLogin, useRegister, useGoogleAuth } from "../hooks/auth/useAuth";
+import { useLogin, useRegister } from "../hooks/auth/useAuth";
 import toast from "react-hot-toast";
 import { authService } from "@/services/authService";
 
@@ -35,7 +35,6 @@ const AuthPage: React.FC = () => {
   // React Query hooks
   const loginMutation = useLogin();
   const registerMutation = useRegister();
-  const googleAuthMutation = useGoogleAuth();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({

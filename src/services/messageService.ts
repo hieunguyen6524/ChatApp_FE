@@ -3,11 +3,12 @@ import type { ApiResponse } from "../types/common.types";
 import type { Message } from "../types/message.types";
 
 export interface MessageListResponse {
-  data: Message[];
-  currentPage: number;
-  totalPages: number;
+  content: Message[];
+  pageNumber: number;
+  pageSize: number;
   totalElements: number;
-  size: number;
+  totalPages: number;
+  last: boolean;
 }
 
 export const messageService = {

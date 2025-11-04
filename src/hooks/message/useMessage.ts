@@ -19,26 +19,21 @@ export const MESSAGE_KEYS = {
 
 // GET messages với infinite scroll
 export const useMessages = (conversationId: number) => {
-  // const { setMessages } = useChatStore();
-
   return useInfiniteQuery({
     queryKey: MESSAGE_KEYS.byConversation(conversationId),
-    queryFn: ({ pageParam }) =>
-      messageService.getMessages(conversationId, {
-        size: 50,
-        page: pageParam || 0,
-      }),
+    queryFn: ({ pageParam = 0 }) =>
+      messageService.getMessages(conversationId, { page: pageParam, size: 20 }),
     initialPageParam: 0,
+
     getNextPageParam: (lastPage) => {
-      const response = lastPage.data;
-      if (response.currentPage >= response.totalPages - 1) {
-        return undefined;
-      }
-      return response.currentPage + 1;
+      const pageData = lastPage.data;
+      if (pageData.last) return undefined;
+      return pageData.pageNumber + 1;
     },
+
     enabled: !!conversationId,
     select: (data) => {
-      const allMessages = data.pages.flatMap((page) => page.data.data);
+      const allMessages = data.pages.flatMap((page) => page.data.content);
       return {
         ...data,
         messages: allMessages,
