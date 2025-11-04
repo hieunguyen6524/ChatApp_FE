@@ -130,12 +130,12 @@ class WebSocketService {
       const response = JSON.parse(message.body);
 
       // Response format: { success, message, data, timestamp }
-      if (!response.success || !response.data) {
-        console.error("Invalid message response:", response);
+      if (!response?.messageId || !response?.conversationId) {
+        console.error("⚠️ Invalid message format:", response);
         return;
       }
 
-      const payload: Message = response.data;
+      const payload: Message = response;
       console.log("📥 Received message:", payload);
 
       // Update Zustand store

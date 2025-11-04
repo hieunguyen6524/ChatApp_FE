@@ -33,7 +33,9 @@ export const useMessages = (conversationId: number) => {
 
     enabled: !!conversationId,
     select: (data) => {
-      const allMessages = data.pages.flatMap((page) => page.data.content);
+      const allMessages = data.pages
+        .flatMap((page) => page.data.content)
+        .reverse();
       return {
         ...data,
         messages: allMessages,
