@@ -4,6 +4,7 @@ import SockJS from "sockjs-client";
 import { useAuthStore } from "../stores/authStore";
 import { useChatStore } from "../stores/chatStore";
 import type { Message } from "@/types/message.types";
+import { queryClient } from "@/config/queryClient";
 
 const WS_URL = import.meta.env.VITE_WS_URL || "http://localhost:8080";
 
@@ -12,6 +13,11 @@ class WebSocketService {
   private subscriptions: Map<number, any> = new Map();
 
   connect() {
+    // Prevent creating multiple clients/connections
+    if (this.client && (this.client.active || this.client.connected)) {
+      console.log("WebSocket already active/connected - skip connect");
+      return;
+    }
     const token = useAuthStore.getState().accessToken;
 
     if (!token) {
@@ -141,6 +147,12 @@ class WebSocketService {
       // Update Zustand store
       const { addMessage } = useChatStore.getState();
       addMessage(payload);
+
+      // Invalidate React Query cache for this conversation to refetch latest
+      const conversationId = payload.conversationId;
+      queryClient.invalidateQueries({
+        queryKey: ["messages", conversationId],
+      });
     } catch (error) {
       console.error("Failed to handle message:", error);
     }

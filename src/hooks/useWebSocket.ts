@@ -7,13 +7,11 @@ export const useWebSocket = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      // Connect WebSocket
+      // Establish connection once; guarded internally to avoid duplicates
       wsService.connect();
-
-      // Cleanup on unmount or logout
-      return () => {
-        wsService.disconnect();
-      };
+    } else {
+      // Disconnect when user logs out
+      wsService.disconnect();
     }
   }, [isAuthenticated]);
 
