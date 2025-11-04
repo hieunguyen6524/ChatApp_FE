@@ -1,8 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  Send,
-  Smile,
-  Paperclip,
   MoreVertical,
   Hash,
   Lock,
@@ -29,7 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { useChatStore } from "../stores/chatStore";
-import type { Conversation } from "@/types/message.types";
+import type { Conversation, Message } from "@/types/message.types";
 import {
   useConversations,
   useCreateConversation,
@@ -38,6 +35,11 @@ import {
   // useWorkspaceMembers,
   useWorkspaces,
 } from "@/hooks/workspace/useWorkspace";
+import { useMessages } from "@/hooks/message/useMessage";
+import { useWebSocket } from "@/hooks/useWebSocket";
+import MessageItem from "@/components/chat/MessageItem";
+import TypingIndicator from "@/components/chat/TypingIndicator";
+import MessageInput from "@/components/chat/MessageInput";
 
 interface ConversationItemProps {
   conversation: Conversation;
@@ -108,11 +110,11 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
 };
 
 const ChatPage: React.FC = () => {
-  const [messageInput, setMessageInput] = useState("");
+  // const [messageInput, setMessageInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   // const [showCreateDialog, setShowCreateDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
   // Zustand store
   const {
     currentWorkspace,
@@ -120,7 +122,10 @@ const ChatPage: React.FC = () => {
     currentConversation,
     setCurrentConversation,
   } = useChatStore();
-
+  const { typingUsers } = useChatStore();
+  const currentTypingUsers = currentConversation
+    ? typingUsers[currentConversation.conversationId] || []
+    : [];
   // React Query hooks
   const { data: workspaces, isLoading: loadingWorkspaces } = useWorkspaces(); // -> Workspace[]
 
@@ -130,7 +135,34 @@ const ChatPage: React.FC = () => {
   const { data: conversations, isLoading: loadingConversations } =
     useConversations(currentWorkspace?.workspaceId || 0);
   const createConversationMutation = useCreateConversation();
+  // Add WebSocket hook
+  const { subscribeToConversation, unsubscribeFromConversation } =
+    useWebSocket();
 
+  // Add messages hooks
+  const {
+    data: messagesData,
+    isLoading: loadingMessages,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useMessages(currentConversation?.conversationId || 0);
+
+  // const sendMessageMutation = useSendMessage();
+
+  // Subscribe khi chọn conversation
+  useEffect(() => {
+    if (currentConversation?.conversationId) {
+      subscribeToConversation(currentConversation.conversationId);
+
+      return () => {
+        unsubscribeFromConversation(currentConversation.conversationId);
+      };
+    }
+  }, [currentConversation?.conversationId]);
+
+  // Render messages
+  const messages = messagesData?.messages || [];
   // Set default workspace
   useEffect(() => {
     if (workspaces && workspaces.length > 0 && !currentWorkspace) {
@@ -138,20 +170,25 @@ const ChatPage: React.FC = () => {
     }
   }, [workspaces, currentWorkspace, setCurrentWorkspace]);
 
-  const handleSendMessage = () => {
-    if (!messageInput.trim() || !currentConversation) return;
+  // Handle send message
+  // const handleSendMessage = () => {
+  //   if (!messageInput.trim() || !currentConversation) return;
 
-    // TODO: Implement send message with API
-    console.log("Send message:", messageInput);
-    setMessageInput("");
-  };
+  //   sendMessageMutation.mutate({
+  //     conversationId: currentConversation.conversationId,
+  //     content: messageInput.trim(),
+  //     contentType: "TEXT",
+  //   });
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
+  //   setMessageInput("");
+  // };
+
+  // const handleKeyPress = (e: React.KeyboardEvent) => {
+  //   if (e.key === "Enter" && !e.shiftKey) {
+  //     e.preventDefault();
+  //     handleSendMessage();
+  //   }
+  // };
 
   const handleCreateChannel = () => {
     if (!currentWorkspace) return;
@@ -449,9 +486,9 @@ const ChatPage: React.FC = () => {
             </div>
 
             {/* Messages Area */}
-            <ScrollArea className="flex-1 p-4 bg-gray-50 dark:bg-gray-900">
+            {/* <ScrollArea className="flex-1 p-4 bg-gray-50 dark:bg-gray-900">
               <div className="max-w-4xl mx-auto space-y-4">
-                {/* Empty state */}
+              
                 <div className="text-center py-12">
                   <Hash className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
@@ -464,51 +501,64 @@ const ChatPage: React.FC = () => {
                 </div>
                 <div ref={messagesEndRef} />
               </div>
+            </ScrollArea> */}
+
+            <ScrollArea className="flex-1 bg-gray-50 dark:bg-gray-900">
+              <div className="max-w-4xl mx-auto">
+                {hasNextPage && (
+                  <div className="text-center py-4">
+                    <Button
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                      variant="ghost"
+                      size="sm"
+                    >
+                      {isFetchingNextPage ? "Đang tải..." : "Tải thêm tin nhắn"}
+                    </Button>
+                  </div>
+                )}
+
+                {loadingMessages ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Hash className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                      Chào mừng đến với{" "}
+                      {currentConversation?.name || "cuộc trò chuyện"}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Đây là đầu cuộc trò chuyện. Gửi tin nhắn đầu tiên!
+                    </p>
+                  </div>
+                ) : (
+                  messages.map((message) => (
+                    <MessageItem
+                      key={message.messageId}
+                      message={message}
+                      onReply={(msg) => setReplyTo(msg)}
+                    />
+                  ))
+                )}
+
+                {currentTypingUsers.length > 0 && (
+                  <TypingIndicator
+                    usernames={currentTypingUsers.map((u) => u.username)}
+                  />
+                )}
+
+                <div ref={messagesEndRef} />
+              </div>
             </ScrollArea>
 
             {/* Message Input */}
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-              <div className="max-w-4xl mx-auto">
-                <div className="flex items-end gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="rounded-full flex-shrink-0"
-                  >
-                    <Paperclip className="w-5 h-5" />
-                  </Button>
-                  <div className="flex-1 relative">
-                    <Input
-                      value={messageInput}
-                      onChange={(e) => setMessageInput(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      placeholder={`Nhắn tin tới ${
-                        currentConversation.name || "cuộc trò chuyện"
-                      }...`}
-                      className="pr-12 py-6 rounded-3xl bg-gray-100 dark:bg-gray-700 border-0"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full"
-                    >
-                      <Smile className="w-5 h-5" />
-                    </Button>
-                  </div>
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!messageInput.trim()}
-                    size="icon"
-                    className="rounded-full w-12 h-12 flex-shrink-0"
-                  >
-                    <Send className="w-5 h-5" />
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                  Nhấn Enter để gửi, Shift + Enter để xuống dòng
-                </p>
-              </div>
-            </div>
+            <MessageInput
+              conversationId={currentConversation.conversationId}
+              replyTo={replyTo}
+              onCancelReply={() => setReplyTo(null)}
+            />
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">

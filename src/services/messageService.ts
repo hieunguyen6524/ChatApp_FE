@@ -1,86 +1,78 @@
 import { apiClient } from "./apiClient";
+import type { ApiResponse } from "../types/common.types";
 import type { Message } from "../types/message.types";
-import type { ApiResponse, PaginatedResponse } from "@/types/common.types";
+
+export interface MessageListResponse {
+  data: Message[];
+  currentPage: number;
+  totalPages: number;
+  totalElements: number;
+  size: number;
+}
 
 export const messageService = {
-  // Get messages with pagination
+  // GET /api/conversations/:id/messages
   getMessages: async (
     conversationId: number,
-    params: { page?: number; limit?: number; before_id?: number }
-  ): Promise<ApiResponse<PaginatedResponse<Message>>> => {
-    return apiClient.get<ApiResponse<PaginatedResponse<Message>>>(
-      `/conversations/${conversationId}/messages`,
+    params?: {
+      page?: number;
+      size?: number;
+      beforeMessageId?: number;
+    }
+  ): Promise<ApiResponse<MessageListResponse>> => {
+    return apiClient.get<ApiResponse<MessageListResponse>>(
+      `/messages/conversation/${conversationId}`,
       { params }
     );
   },
 
-  // Send message
+  // POST /api/conversations/:id/messages
   sendMessage: async (
-    conversationId: number,
+    // conversationId: number,
     data: {
       content: string;
-      content_type?: "TEXT" | "MARKDOWN" | "CODE";
-      parent_id?: number;
+      contentType?: "TEXT" | "MARKDOWN" | "CODE";
+      parentId?: number;
     }
   ): Promise<ApiResponse<Message>> => {
-    return apiClient.post<ApiResponse<Message>>(
-      `/conversations/${conversationId}/messages`,
-      data
-    );
+    return apiClient.post<ApiResponse<Message>>(`/messages`, data);
   },
 
-  // Update message
+  // PUT /api/messages/:id
   updateMessage: async (
     messageId: number,
-    data: { content: string }
+    content: string
   ): Promise<ApiResponse<Message>> => {
-    return apiClient.put<ApiResponse<Message>>(`/messages/${messageId}`, data);
+    return apiClient.put<ApiResponse<Message>>(`/messages/${messageId}`, {
+      content,
+    });
   },
 
-  // Delete message
+  // DELETE /api/messages/:id
   deleteMessage: async (messageId: number): Promise<ApiResponse<void>> => {
     return apiClient.delete<ApiResponse<void>>(`/messages/${messageId}`);
   },
 
-  // Add reaction
+  // POST /api/messages/:id/reactions
   addReaction: async (
     messageId: number,
     emoji: string
   ): Promise<ApiResponse<void>> => {
     return apiClient.post<ApiResponse<void>>(
       `/messages/${messageId}/reactions`,
-      { emoji }
+      {
+        emoji,
+      }
     );
   },
 
-  // Remove reaction
+  // DELETE /api/messages/:id/reactions/:emoji
   removeReaction: async (
     messageId: number,
     emoji: string
   ): Promise<ApiResponse<void>> => {
     return apiClient.delete<ApiResponse<void>>(
-      `/messages/${messageId}/reactions/${emoji}`
-    );
-  },
-
-  // Pin message
-  pinMessage: async (messageId: number): Promise<ApiResponse<void>> => {
-    return apiClient.post<ApiResponse<void>>(`/messages/${messageId}/pin`);
-  },
-
-  // Unpin message
-  unpinMessage: async (messageId: number): Promise<ApiResponse<void>> => {
-    return apiClient.delete<ApiResponse<void>>(`/messages/${messageId}/pin`);
-  },
-
-  // Mark as read
-  markAsRead: async (
-    conversationId: number,
-    messageId: number
-  ): Promise<ApiResponse<void>> => {
-    return apiClient.post<ApiResponse<void>>(
-      `/conversations/${conversationId}/read`,
-      { message_id: messageId }
+      `/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`
     );
   },
 };

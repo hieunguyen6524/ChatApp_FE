@@ -43,29 +43,27 @@ export interface ConversationMember {
 }
 
 export interface Message {
-  message_id: number;
-  conversation_id: number;
-  sender_id: number | null;
-  parent_id: number | null;
-  content: string | null;
-  content_type: ContentType;
-  is_deleted: boolean;
-  is_pinned: boolean;
-  created_at: number;
-  updated_at: number;
-  sender?: Profile;
-  reactions?: MessageReaction[];
-  mentions?: number[];
-  attachments?: FileMetadata[];
-  reply_count?: number;
+  messageId: number; // Đổi từ message_id
+  conversationId: number; // Đổi từ conversation_id
+  sender: Profile; // Object phức tạp hơn
+  content: string;
+  contentType: ContentType;
+  isDeleted: boolean; // Đổi từ is_deleted
+  isPinned: boolean; // Đổi từ is_pinned
+  parentId: number | null; // Đổi từ parent_id
+  replyCount: number; // Mới thêm
+  reactions: MessageReaction[] | null;
+  mentions: number[] | null; // Mới thêm
+  attachments: MessageAttachment[] | null; // Mới thêm
+  createdAt: number; // Đổi từ created_at
+  updatedAt: number; // Đổi từ updated_at
 }
 
 export interface MessageReaction {
-  message_id: number;
-  account_id: number;
+  messageId: number;
+  accountId: number;
   emoji: string;
-  reacted_at: number;
-  profile?: Profile;
+  reactedAt: number;
 }
 
 export interface MessageMention {
@@ -89,8 +87,9 @@ export interface FileMetadata {
 }
 
 export interface MessageAttachment {
-  id: number;
-  message_id: number;
-  file_id: number;
-  file?: FileMetadata;
+  fileId: number;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  fileType: string;
 }

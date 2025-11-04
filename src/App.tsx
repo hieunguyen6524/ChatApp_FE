@@ -9,6 +9,7 @@ import AuthPage from "./page/AuthPage";
 import ProfilePage from "./page/ProfilePage";
 import ChatPage from "./page/ChatPage";
 import GoogleCallbackPage from "./page/GoogleCallbackPage";
+import { useWebSocket } from "./hooks/useWebSocket";
 
 // Protected Route Component
 interface ProtectedRouteProps {
@@ -38,7 +39,7 @@ const PublicRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
 const App: React.FC = () => {
   const { isDarkMode } = useThemeStore();
-
+  useWebSocket();
   // Apply theme on mount
   useEffect(() => {
     if (isDarkMode) {

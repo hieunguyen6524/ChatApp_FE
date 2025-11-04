@@ -177,10 +177,20 @@ export const useChatStore = create<ChatState>((set) => ({
       },
     })),
 
-  addMessage: (message) =>
+  addMessage: (message: Message) =>
     set((state) => {
-      const conversationId = message.conversation_id;
+      const conversationId = message.conversationId;
       const existingMessages = state.messages[conversationId] || [];
+
+      // Check if message already exists (prevent duplicates)
+      const isDuplicate = existingMessages.some(
+        (m) => m.messageId === message.messageId
+      );
+
+      if (isDuplicate) {
+        console.log("Duplicate message, skipping:", message.messageId);
+        return state;
+      }
 
       return {
         messages: {
@@ -189,7 +199,15 @@ export const useChatStore = create<ChatState>((set) => ({
         },
         conversations: state.conversations.map((c) =>
           c.conversationId === conversationId
-            ? { ...c, last_message: message, updated_at: message.created_at }
+            ? {
+                ...c,
+                lastMessage: {
+                  messageId: message.messageId,
+                  content: message.content,
+                  createdAt: message.createdAt,
+                },
+                updatedAt: message.createdAt,
+              }
             : c
         ),
       };
@@ -201,7 +219,7 @@ export const useChatStore = create<ChatState>((set) => ({
 
       Object.keys(newMessages).forEach((convId) => {
         newMessages[Number(convId)] = newMessages[Number(convId)].map((m) =>
-          m.message_id === messageId ? { ...m, ...updates } : m
+          m.messageId === messageId ? { ...m, ...updates } : m
         );
       });
 
@@ -214,7 +232,7 @@ export const useChatStore = create<ChatState>((set) => ({
         ...state.messages,
         [conversationId]:
           state.messages[conversationId]?.filter(
-            (m) => m.message_id !== messageId
+            (m) => m.messageId !== messageId
           ) || [],
       },
     })),
