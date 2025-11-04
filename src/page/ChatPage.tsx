@@ -121,6 +121,7 @@ const ChatPage: React.FC = () => {
     setCurrentWorkspace,
     currentConversation,
     setCurrentConversation,
+    messages: storeMessages,
   } = useChatStore();
   const { typingUsers } = useChatStore();
   const currentTypingUsers = currentConversation
@@ -162,7 +163,17 @@ const ChatPage: React.FC = () => {
   }, [currentConversation?.conversationId]);
 
   // Render messages
-  const messages = messagesData?.messages || [];
+  const messages =
+    (currentConversation && storeMessages[currentConversation.conversationId]) ||
+    messagesData?.messages ||
+    [];
+
+  // Auto scroll to bottom on new messages
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages?.length, currentConversation?.conversationId]);
   // Set default workspace
   useEffect(() => {
     if (workspaces && workspaces.length > 0 && !currentWorkspace) {

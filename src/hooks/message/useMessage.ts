@@ -7,7 +7,7 @@ import {
 
 import toast from "react-hot-toast";
 import type { Message } from "@/types/message.types";
-// import { useChatStore } from "@/stores/chatStore";
+import { useChatStore } from "@/stores/chatStore";
 import { messageService } from "@/services/messageService";
 import { useWebSocket } from "../useWebSocket";
 
@@ -19,10 +19,16 @@ export const MESSAGE_KEYS = {
 
 // GET messages với infinite scroll
 export const useMessages = (conversationId: number) => {
+  const { setMessages } = useChatStore();
+
   return useInfiniteQuery({
     queryKey: MESSAGE_KEYS.byConversation(conversationId),
     queryFn: ({ pageParam = 0 }) =>
-      messageService.getMessages(conversationId, { page: pageParam, size: 20 }),
+      messageService.getMessages(conversationId, {
+        page: pageParam,
+        size: 20,
+        sort: "createdAt,desc",
+      }),
     initialPageParam: 0,
 
     getNextPageParam: (lastPage) => {
@@ -40,6 +46,27 @@ export const useMessages = (conversationId: number) => {
       };
     },
     staleTime: 0,
+    onSuccess: (data) => {
+      // Merge with store, dedupe by messageId, then sort oldest -> newest
+      const fetched = data.pages.flatMap((page) => page.data.content);
+      if (!conversationId) return;
+
+      const state = useChatStore.getState();
+      const existing = state.messages[conversationId] || [];
+
+      const byId = new Map<number, Message>();
+      [...existing, ...fetched].forEach((m: any) => {
+        byId.set(m.messageId, m as Message);
+      });
+
+      const merged = Array.from(byId.values()).sort(
+        (a, b) => (a.createdAt || 0) - (b.createdAt || 0)
+      );
+
+      setMessages(conversationId, merged);
+    },
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
   });
 };
 

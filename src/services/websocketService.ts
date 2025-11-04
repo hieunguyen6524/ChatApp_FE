@@ -10,6 +10,7 @@ const WS_URL = import.meta.env.VITE_WS_URL || "http://localhost:8080";
 class WebSocketService {
   private client: Client | null = null;
   private subscriptions: Map<number, any> = new Map();
+  private desiredConversationIds: Set<number> = new Set();
 
   connect() {
     const token = useAuthStore.getState().accessToken;
@@ -55,12 +56,36 @@ class WebSocketService {
 
   private onConnected() {
     console.log("WebSocket connected, ready to subscribe");
+    // Re-subscribe to desired conversations after reconnect
+    this.desiredConversationIds.forEach((conversationId) => {
+      try {
+        // Clean any stale entry
+        const existing = this.subscriptions.get(conversationId);
+        if (existing) {
+          try { existing.unsubscribe(); } catch {}
+          this.subscriptions.delete(conversationId);
+        }
+        const subscription = this.client!.subscribe(
+          `/topic/conversations/${conversationId}`,
+          (message: IMessage) => {
+            this.handleMessage(message);
+          }
+        );
+        this.subscriptions.set(conversationId, subscription);
+        console.log(`🔁 Re-subscribed to conversation ${conversationId}`);
+      } catch (e) {
+        console.error("Failed to resubscribe:", conversationId, e);
+      }
+    });
   }
 
   // Subscribe to conversation
   subscribeToConversation(conversationId: number) {
+    this.desiredConversationIds.add(conversationId);
+
     if (!this.client?.connected) {
-      console.error("WebSocket not connected");
+      console.warn("WebSocket not connected, attempting to connect and will subscribe after connect");
+      this.connect();
       return;
     }
 
@@ -89,6 +114,7 @@ class WebSocketService {
       this.subscriptions.delete(conversationId);
       console.log(`❌ Unsubscribed from conversation ${conversationId}`);
     }
+    this.desiredConversationIds.delete(conversationId);
   }
 
   // Send message
@@ -127,15 +153,9 @@ class WebSocketService {
   // Handle incoming message
   private handleMessage(message: IMessage) {
     try {
-      const response = JSON.parse(message.body);
-
-      // Response format: { success, message, data, timestamp }
-      if (!response.success || !response.data) {
-        console.error("Invalid message response:", response);
-        return;
-      }
-
-      const payload: Message = response.data;
+      const parsed = JSON.parse(message.body);
+      // Accept either wrapped or raw message payloads
+      const payload: Message = (parsed && parsed.data) ? parsed.data : parsed;
       console.log("📥 Received message:", payload);
 
       // Update Zustand store

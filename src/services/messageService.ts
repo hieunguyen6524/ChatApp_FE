@@ -19,6 +19,7 @@ export const messageService = {
       page?: number;
       size?: number;
       beforeMessageId?: number;
+      sort?: string;
     }
   ): Promise<ApiResponse<MessageListResponse>> => {
     return apiClient.get<ApiResponse<MessageListResponse>>(
